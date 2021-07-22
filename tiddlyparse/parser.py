@@ -20,24 +20,34 @@ class UnknownTiddlywikiFormatError(ValueError):
     pass
 
 
-class Tiddler:
+class TiddlerNotFoundError(KeyError):
     pass
 
 
+class Tiddler:
+    title: str
+
+
 class DivTiddler(Tiddler):
-    def __init__(self, el: PageElement):
-        pass
+    def __init__(self, el: Tag):
+        title = el["title"]
+        if not isinstance(title, str):
+            raise UnknownTiddlywikiFormatError(
+                f"Got invalid title value for tiddler: {title!r}"
+            )
+        self.title = title
 
 
 class JsonTiddler(Tiddler):
     def __init__(self, tiddler: Mapping[str, str]):
-        pass
+        self.title = tiddler["title"]
 
 
 class TiddlyParser(ABC):
     filename: Path
     fileformat: FileFormat
 
+    _tiddlers: Sequence[Tiddler]
     _soup: BeautifulSoup
 
     @classmethod
@@ -49,12 +59,17 @@ class TiddlyParser(ABC):
     def __len__(self) -> int:
         pass
 
+    def __getitem__(self, title: str) -> Tiddler:
+        for tiddler in self._tiddlers:
+            if tiddler.title == title:
+                return tiddler
+        raise TiddlerNotFoundError(f"Could not find tiddler {title}")
+
 
 class JsonTiddlyParser(TiddlyParser):
     fileformat: FileFormat = FileFormat.JSON
 
     _root: Tag
-    _tiddlers: Sequence[Tiddler]
 
     def __init__(self, file: Path, soup: BeautifulSoup):
         self.fileformat = FileFormat.JSON
@@ -97,7 +112,6 @@ class DivTiddlyParser(TiddlyParser):
     fileformat: FileFormat = FileFormat.DIV
 
     _root: Tag
-    _tiddlers: Sequence[Tiddler]
 
     def __init__(self, file: Path, soup: BeautifulSoup):
         self.fileformat = FileFormat.DIV
@@ -123,7 +137,8 @@ class DivTiddlyParser(TiddlyParser):
     def _load_tiddlers(self) -> Sequence[Tiddler]:
         tiddlers = []
         for container in self._root("div"):
-            tiddlers.append(DivTiddler(container))
+            if isinstance(container, Tag):
+                tiddlers.append(DivTiddler(container))
         return tiddlers
 
 

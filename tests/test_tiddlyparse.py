@@ -33,9 +33,19 @@ def test_parse_div_length(div_wiki):
     assert len(div_wiki) == 4
 
 
+def test_div_tiddler_by_title(div_wiki):
+    tiddler = div_wiki["$:/isEncrypted"]
+    assert tiddler
+
+
 def test_parse_json_format(json_wiki):
     assert json_wiki.fileformat == FileFormat.JSON
 
 
 def test_parse_json_length(json_wiki):
     assert len(json_wiki) == 7
+
+
+def test_json_tiddler_by_title(json_wiki):
+    tiddler = json_wiki["$:/isEncrypted"]
+    assert tiddler
