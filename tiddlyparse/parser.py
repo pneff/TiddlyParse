@@ -1,3 +1,4 @@
+import html
 import json
 import tempfile
 from abc import ABC, abstractmethod
@@ -8,6 +9,7 @@ from typing import Mapping, MutableMapping, Optional, Sequence, Union
 
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, Tag
+from bs4.formatter import Formatter, HTMLFormatter
 
 
 class FileFormat(Enum):
@@ -23,6 +25,14 @@ class UnknownTiddlywikiFormatError(ValueError):
 
 class TiddlerNotFoundError(KeyError):
     pass
+
+
+class DivHtmlFormatter(HTMLFormatter):
+    def __init__(self) -> None:
+        super().__init__(entity_substitution=self._entity_substitution)
+
+    def _entity_substitution(self, s: str) -> str:
+        return html.escape(s).replace("&#x27;", "'")
 
 
 class Tiddler:
@@ -164,14 +174,25 @@ class TiddlyParser(ABC):
         `sourceline` and `sourcepos` properties of the root tag.
         """
         root = self._root
-        root_next = self._root.next_sibling
+        root_next_strings = []
+
         if not isinstance(root, Tag):
             raise UnknownTiddlywikiFormatError("Expected root to be a tag.")
-        if not isinstance(root_next, Tag):
-            raise UnknownTiddlywikiFormatError("Expected next element to be a tag.")
+
+        root_next = self._root.next_sibling
+        while root_next and not isinstance(root_next, Tag):
+            root_next_strings.append(
+                getattr(root_next, "PREFIX", "")
+                + str(root_next)
+                + getattr(root_next, "SUFFIX", "")
+            )
+            root_next = root_next.next_sibling
 
         copy_until_line = root.sourceline
         copy_until_pos = root.sourcepos or 0
+        if not isinstance(root_next, Tag):
+            raise UnknownTiddlywikiFormatError("Could not find tag after wiki content.")
+
         copy_from_line = root_next.sourceline
         copy_from_pos = root_next.sourcepos or 0
         if not copy_until_line or not copy_from_line:
@@ -189,15 +210,22 @@ class TiddlyParser(ABC):
                         output = line
                     elif idx + 1 == copy_until_line:
                         output = line[:copy_until_pos]
-                        output += self._root.decode(formatter="minimal")
+                        # output += self._root.decode(formatter="minimal")
+                        output += self._root.decode(
+                            formatter=self._get_html_formatter()
+                        )
                     elif idx + 1 == copy_from_line:
-                        output = line[copy_from_pos:]
+                        output = "".join(root_next_strings)
+                        output += line[copy_from_pos:]
                     elif idx + 1 > copy_from_line:
                         output = line
                     if output is not None:
                         outf.write(output)
 
             tmpf.rename(self.filename)
+
+    def _get_html_formatter(self) -> Union[str, Formatter]:
+        return "minimal"
 
     @abstractmethod
     def __len__(self) -> int:
@@ -292,6 +320,10 @@ class JsonTiddlyParser(TiddlyParser):
 class DivTiddlyParser(TiddlyParser):
     fileformat: FileFormat = FileFormat.DIV
 
+    # Keep track of changes for persisting later
+    _new_tiddlers: MutableMapping[str, Tiddler]
+    _modified_tiddlers: MutableMapping[str, Tiddler]
+
     def __init__(self, file: Path, soup: BeautifulSoup):
         self.fileformat = FileFormat.DIV
         self.filename = file
@@ -301,16 +333,51 @@ class DivTiddlyParser(TiddlyParser):
             raise UnknownTiddlywikiFormatError("Could not find root element.")
         self._root = root
         self._tiddlers = self._load_tiddlers()
+        self._new_tiddlers = {}
+        self._modified_tiddlers = {}
 
     @classmethod
     def is_format(cls, file: Path, soup: BeautifulSoup) -> bool:
         return bool(cls._get_container(soup))
 
     def save(self) -> None:
-        pass
+        dumped = set()
+
+        for container in self._root("div"):
+            if isinstance(container, Tag):
+                container_title = container["title"]
+                if (
+                    isinstance(container_title, str)
+                    and container_title in self._modified_tiddlers
+                ):
+                    tiddler = self._modified_tiddlers[container_title]
+                    container.replace_with(self._dump_tiddler(tiddler))
+                    dumped.add(container_title)
+
+        # Ensure all tiddlers that were modified were found in the original list
+        for title, tiddler in self._modified_tiddlers.items():
+            assert title in dumped
+
+        for title, tiddler in self._new_tiddlers.items():
+            assert title not in dumped
+            self._root.append(self._dump_tiddler(tiddler))
+
+        self.dump_to_file()
 
     def __len__(self) -> int:
         return len(self._tiddlers)
+
+    def add(self, tiddler: Tiddler) -> None:
+        if tiddler.title in self._new_tiddlers:
+            self._new_tiddlers[tiddler.title] = tiddler
+        elif tiddler.title in self._modified_tiddlers:
+            self._modified_tiddlers[tiddler.title] = tiddler
+        elif tiddler.title in [t.title for t in self._tiddlers]:
+            self._modified_tiddlers[tiddler.title] = tiddler
+        else:
+            self._new_tiddlers[tiddler.title] = tiddler
+
+        super().add(tiddler=tiddler)
 
     def new_tiddler(self, title: str) -> Tiddler:
         return DivTiddler(title=title)
@@ -325,6 +392,23 @@ class DivTiddlyParser(TiddlyParser):
             if isinstance(container, Tag):
                 tiddlers.append(DivTiddler(container))
         return tiddlers
+
+    def _get_html_formatter(self) -> Union[str, Formatter]:
+        return DivHtmlFormatter()
+
+    def _dump_tiddler(self, tiddler: Tiddler) -> Tag:
+        tag = self._soup.new_tag("div")
+        data = tiddler.to_dict()
+        for key, value in data.items():
+            if key == "text":
+                pre = self._soup.new_tag("pre")
+                pre.string = value
+                tag.append(self._soup.new_string("\n"))
+                tag.append(pre)
+                tag.append(self._soup.new_string("\n"))
+            else:
+                tag[key] = value
+        return tag
 
 
 def parse(file: Path) -> TiddlyParser:

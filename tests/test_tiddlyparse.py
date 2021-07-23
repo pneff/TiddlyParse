@@ -1,3 +1,4 @@
+import re
 import shutil
 from pathlib import Path
 
@@ -9,9 +10,13 @@ FIXTURES = Path(__file__).parent / "fixtures"
 
 
 @fixture
-def div_wiki():
-    fixture_name = FIXTURES / "empty-5.1.23.html"
-    wiki = parse(file=fixture_name)
+def div_file_name():
+    yield FIXTURES / "empty-5.1.23.html"
+
+
+@fixture
+def div_wiki(div_file_name):
+    wiki = parse(file=div_file_name)
     yield wiki
 
 
@@ -41,6 +46,62 @@ def test_div_tiddler_by_title(div_wiki):
     tiddler = div_wiki["$:/isEncrypted"]
     assert tiddler.title == "$:/isEncrypted"
     assert tiddler.text == "no"
+
+
+def test_div_write(div_file_name, tmp_path):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(div_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    tiddler = wiki.get_or_create("my_new_tiddler")
+    tiddler.text = "This is a test for a new tiddler."
+    wiki.add(tiddler)
+    wiki.save()
+
+    wiki2 = parse(fixture_name)
+    tiddler2 = wiki2["my_new_tiddler"]
+    assert tiddler2.text == "This is a test for a new tiddler."
+
+
+def test_div_write_no_modification(div_file_name, tmp_path):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(div_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    wiki.save()
+
+    orig_content = div_file_name.open().read()
+    new_content = fixture_name.open().read()
+
+    # I have not figured out how to correctly retain the double-newlines in
+    # some cases, especially at the end of the storeArea. So compare after
+    # normalising all double-newlines.
+    orig_content = re.sub("\n+", "\n", orig_content)
+    new_content = re.sub("\n+", "\n", new_content)
+
+    assert orig_content == new_content
+
+
+def test_div_noop_modification_write_no_modification(div_file_name, tmp_path):
+    """Ensure that adding a Tiddler without modifications doesn't change the file."""
+    fixture_name = Path("/tmp/wiki") / "wiki.html"
+    shutil.copy(div_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    tiddler = wiki["$:/isEncrypted"]
+    wiki.add(tiddler)
+    wiki.save()
+
+    orig_content = div_file_name.open().read()
+    new_content = fixture_name.open().read()
+
+    # I have not figured out how to correctly retain the double-newlines in
+    # some cases, especially at the end of the storeArea. So compare after
+    # normalising all double-newlines.
+    orig_content = re.sub("\n+", "\n", orig_content)
+    new_content = re.sub("\n+", "\n", new_content)
+
+    assert orig_content == new_content
 
 
 def test_parse_json_format(json_wiki):
