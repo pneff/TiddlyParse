@@ -234,3 +234,22 @@ def test_json_write_changed_title(json_file_name, tmp_path):
     assert not tiddler_deleted
     tiddler3 = wiki3["my_new_tiddler_changed"]
     assert tiddler3.text == "This is a test for a new tiddler - changed."
+
+
+def test_json_return_changes(json_file_name):
+    wiki = parse(json_file_name)
+    tiddler = wiki.get_or_create("my_new_tiddler")
+    tiddler.text = "This is a test for a new tiddler."
+    wiki.add(tiddler)
+
+    tiddler = wiki["$:/themes/tiddlywiki/snowwhite"]
+    tiddler.author = "TestAuthor"
+    wiki.add(tiddler)
+
+    tiddler = wiki["my_new_tiddler"]
+    tiddler.text = "overwritten"
+    wiki.add(tiddler)
+
+    changes = wiki.changes
+    assert len(changes) == 2
+    assert changes == ["my_new_tiddler", "$:/themes/tiddlywiki/snowwhite"]

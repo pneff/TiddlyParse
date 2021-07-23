@@ -5,7 +5,8 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import Literal, Mapping, MutableMapping, Optional, Sequence, Union
+from typing import (Literal, Mapping, MutableMapping, MutableSequence,
+                    Optional, Sequence, Union)
 
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, Tag
@@ -152,8 +153,13 @@ class TiddlyParser(ABC):
     fileformat: FileFormat
 
     _tiddlers: Sequence[Tiddler]
+    _changes: MutableSequence[str]
     _soup: BeautifulSoup
     _root: Tag
+
+    def __init__(self) -> None:
+        self._tiddlers = []
+        self._changes = []
 
     @classmethod
     @abstractmethod
@@ -163,7 +169,13 @@ class TiddlyParser(ABC):
     def add(self, tiddler: Tiddler) -> None:
         tiddlers = [t for t in self._tiddlers if t.title != tiddler.original_title]
         tiddlers.append(tiddler)
+        if tiddler.title not in self._changes:
+            self._changes.append(tiddler.title)
         self._tiddlers = tiddlers
+
+    @property
+    def changes(self) -> Sequence[str]:
+        return self._changes
 
     @abstractmethod
     def save(self) -> None:
@@ -286,6 +298,8 @@ class JsonTiddlyParser(TiddlyParser):
     fileformat: FileFormat = FileFormat.JSON
 
     def __init__(self, file: Path, soup: BeautifulSoup):
+        super().__init__()
+
         self.fileformat = FileFormat.JSON
         self.filename = file
         self._soup = soup
@@ -353,6 +367,8 @@ class DivTiddlyParser(TiddlyParser):
     _modified_tiddlers: MutableMapping[str, Tiddler]
 
     def __init__(self, file: Path, soup: BeautifulSoup):
+        super().__init__()
+
         self.fileformat = FileFormat.DIV
         self.filename = file
         self._soup = soup
