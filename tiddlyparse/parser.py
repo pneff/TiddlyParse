@@ -62,6 +62,10 @@ class Tiddler:
         """
         pass
 
+    @property
+    def original_title(self) -> Optional[str]:
+        return self.stored_values.get("title")
+
     def to_dict(self) -> Mapping[str, str]:
         ret = {}
         # Loop first over the stored values, then over the manually defined
@@ -157,7 +161,7 @@ class TiddlyParser(ABC):
         pass
 
     def add(self, tiddler: Tiddler) -> None:
-        tiddlers = [t for t in self._tiddlers if t.title != tiddler.title]
+        tiddlers = [t for t in self._tiddlers if t.title != tiddler.original_title]
         tiddlers.append(tiddler)
         self._tiddlers = tiddlers
 
@@ -336,7 +340,8 @@ class JsonTiddlyParser(TiddlyParser):
                 f"Could not parse the JSON tiddler with the text {text[0:100]!r}"
             )
         for tiddler in raw_tiddlers:
-            tiddlers.append(JsonTiddler(tiddler))
+            tid = JsonTiddler(tiddler)
+            tiddlers.append(tid)
         return tiddlers
 
 
@@ -369,13 +374,11 @@ class DivTiddlyParser(TiddlyParser):
         for container in self._root("div"):
             if isinstance(container, Tag):
                 container_title = container["title"]
-                if (
-                    isinstance(container_title, str)
-                    and container_title in self._modified_tiddlers
-                ):
-                    tiddler = self._modified_tiddlers[container_title]
-                    container.replace_with(self._dump_tiddler(tiddler))
-                    dumped.add(container_title)
+                if isinstance(container_title, str):
+                    if container_title in self._modified_tiddlers:
+                        tiddler = self._modified_tiddlers[container_title]
+                        container.replace_with(self._dump_tiddler(tiddler))
+                        dumped.add(container_title)
 
         # Ensure all tiddlers that were modified were found in the original list
         for title, tiddler in self._modified_tiddlers.items():
@@ -391,14 +394,15 @@ class DivTiddlyParser(TiddlyParser):
         return len(self._tiddlers)
 
     def add(self, tiddler: Tiddler) -> None:
-        if tiddler.title in self._new_tiddlers:
-            self._new_tiddlers[tiddler.title] = tiddler
-        elif tiddler.title in self._modified_tiddlers:
-            self._modified_tiddlers[tiddler.title] = tiddler
-        elif tiddler.title in [t.title for t in self._tiddlers]:
-            self._modified_tiddlers[tiddler.title] = tiddler
+        title = tiddler.original_title or tiddler.title
+        if title in self._new_tiddlers:
+            self._new_tiddlers[title] = tiddler
+        elif title in self._modified_tiddlers:
+            self._modified_tiddlers[title] = tiddler
+        elif title in [t.original_title for t in self._tiddlers]:
+            self._modified_tiddlers[title] = tiddler
         else:
-            self._new_tiddlers[tiddler.title] = tiddler
+            self._new_tiddlers[title] = tiddler
 
         super().add(tiddler=tiddler)
 

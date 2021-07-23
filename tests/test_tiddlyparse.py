@@ -112,6 +112,30 @@ def test_div_noop_modification_write_no_modification(div_file_name, tmp_path):
     assert orig_content == new_content
 
 
+def test_div_write_changed_title(div_file_name, tmp_path):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(div_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    tiddler = wiki.get_or_create("my_new_tiddler")
+    tiddler.text = "This is a test for a new tiddler."
+    wiki.add(tiddler)
+    wiki.save()
+
+    wiki2 = parse(fixture_name)
+    tiddler2 = wiki2.get("my_new_tiddler")
+    tiddler2.text = "This is a test for a new tiddler - changed."
+    tiddler2.title = "my_new_tiddler_changed"
+    wiki2.add(tiddler2)
+    wiki2.save()
+
+    wiki3 = parse(fixture_name)
+    tiddler_deleted = wiki3.get("my_new_tiddler")
+    assert not tiddler_deleted
+    tiddler3 = wiki3["my_new_tiddler_changed"]
+    assert tiddler3.text == "This is a test for a new tiddler - changed."
+
+
 def test_parse_json_format(json_wiki):
     assert json_wiki.fileformat == FileFormat.JSON
 
@@ -186,3 +210,27 @@ def test_json_write_no_modification(json_file_name, tmp_path):
     orig_content = json_file_name.open().read()
     new_content = fixture_name.open().read()
     assert orig_content == new_content
+
+
+def test_json_write_changed_title(json_file_name, tmp_path):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(json_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    tiddler = wiki.get_or_create("my_new_tiddler")
+    tiddler.text = "This is a test for a new tiddler."
+    wiki.add(tiddler)
+    wiki.save()
+
+    wiki2 = parse(fixture_name)
+    tiddler2 = wiki2.get("my_new_tiddler")
+    tiddler2.text = "This is a test for a new tiddler - changed."
+    tiddler2.title = "my_new_tiddler_changed"
+    wiki2.add(tiddler2)
+    wiki2.save()
+
+    wiki3 = parse(fixture_name)
+    tiddler_deleted = wiki3.get("my_new_tiddler")
+    assert not tiddler_deleted
+    tiddler3 = wiki3["my_new_tiddler_changed"]
+    assert tiddler3.text == "This is a test for a new tiddler - changed."
