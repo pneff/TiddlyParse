@@ -80,3 +80,15 @@ def test_json_write(json_file_name, tmp_path):
     wiki2 = parse(fixture_name)
     tiddler2 = wiki2["my_new_tiddler"]
     assert tiddler2.text == "This is a test for a new tiddler."
+
+
+def test_json_write_no_modification(json_file_name, tmp_path):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(json_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    wiki.save()
+
+    orig_content = json_file_name.open().read()
+    new_content = fixture_name.open().read()
+    assert orig_content == new_content

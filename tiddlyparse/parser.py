@@ -148,7 +148,6 @@ class TiddlyParser(ABC):
         tiddlers = [t for t in self._tiddlers if t.title != tiddler.title]
         tiddlers.append(tiddler)
         self._tiddlers = tiddlers
-        print("add", tiddler.to_dict(), tiddler.__dict__)
 
     @abstractmethod
     def save(self) -> None:
@@ -169,8 +168,6 @@ class TiddlyParser(ABC):
         if not isinstance(root, Tag):
             raise UnknownTiddlywikiFormatError("Expected root to be a tag.")
         if not isinstance(root_next, Tag):
-            print("root", repr(root)[0:200])
-            print("next", repr(root_next)[0:200])
             raise UnknownTiddlywikiFormatError("Expected next element to be a tag.")
 
         copy_until_line = root.sourceline
@@ -192,7 +189,7 @@ class TiddlyParser(ABC):
                         output = line
                     elif idx + 1 == copy_until_line:
                         output = line[:copy_until_pos]
-                        output += self._root.prettify(formatter="minimal").rstrip("\n")
+                        output += self._root.decode(formatter="minimal")
                     elif idx + 1 == copy_from_line:
                         output = line[copy_from_pos:]
                     elif idx + 1 > copy_from_line:
@@ -261,11 +258,8 @@ class JsonTiddlyParser(TiddlyParser):
             )
             json_tiddler = json_tiddler.replace("<", "\\u003C")
             out.append(json_tiddler)
-        out.append("]")
-        out.append("\n")
+        out.append("\n]")
         tiddlers_json = "".join(out)
-        print(repr(tiddlers_json[0:50]))
-        print(repr(tiddlers_json[-50:]))
         self._root.string = tiddlers_json
         self.dump_to_file()
 
