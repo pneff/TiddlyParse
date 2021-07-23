@@ -92,7 +92,6 @@ class DivTiddler(Tiddler):
                 raise UnknownTiddlywikiFormatError(
                     f"Got invalid title value for tiddler: {title!r}"
                 )
-            self._title = title_
             self._el = el
         elif title:
             self.title = title
@@ -108,13 +107,16 @@ class DivTiddler(Tiddler):
 
         values = {"text": ""}
         if self._el:
-            tag = self._el("pre")[0]
-            if not isinstance(tag, Tag):
+            for key, value in self._el.attrs.items():
+                values[key] = value
+
+            text_tag = self._el("pre")[0]
+            if not isinstance(text_tag, Tag):
                 raise UnknownTiddlywikiFormatError(
                     f"Could not find text for tiddler {self.title!r}"
                 )
-            values["text"] = tag.string or ""
-            values["title"] = self._title
+            values["text"] = text_tag.string or ""
+
         self._stored_values = values
         return values
 
