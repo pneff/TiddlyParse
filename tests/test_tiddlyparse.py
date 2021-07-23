@@ -48,6 +48,14 @@ def test_div_tiddler_by_title(div_wiki):
     assert tiddler.text == "no"
 
 
+def test_div_tiddler_search_by_set_value(div_wiki):
+    tiddlers = div_wiki.search(author=True)
+    assert len(tiddlers) == 3
+    assert tiddlers[0].title == "$:/core"
+    assert tiddlers[1].title == "$:/themes/tiddlywiki/snowwhite"
+    assert tiddlers[2].title == "$:/themes/tiddlywiki/vanilla"
+
+
 def test_div_write(div_file_name, tmp_path):
     fixture_name = tmp_path / "wiki.html"
     shutil.copy(div_file_name, fixture_name)
@@ -126,6 +134,20 @@ def test_json_get_tiddler_by_title(json_wiki):
 def test_json_get_new_tiddler_by_title(json_wiki):
     tiddler = json_wiki.get_or_create("new_tiddler")
     assert tiddler.title == "new_tiddler"
+
+
+def test_json_tiddler_search_by_set_value(json_wiki):
+    tiddlers = json_wiki.search(author=True)
+    assert len(tiddlers) == 3
+    assert tiddlers[0].title == "$:/core"
+    assert tiddlers[1].title == "$:/themes/tiddlywiki/snowwhite"
+    assert tiddlers[2].title == "$:/themes/tiddlywiki/vanilla"
+
+
+def test_json_tiddler_search_by_specific_value(json_wiki):
+    tiddlers = json_wiki.search(name="Snow White")
+    assert len(tiddlers) == 1
+    assert tiddlers[0].title == "$:/themes/tiddlywiki/snowwhite"
 
 
 def test_json_write(json_file_name, tmp_path):

@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from enum import Enum
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import Mapping, MutableMapping, Optional, Sequence, Union
+from typing import Literal, Mapping, MutableMapping, Optional, Sequence, Union
 
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, Tag
@@ -251,6 +251,25 @@ class TiddlyParser(ABC):
             return tiddler
         else:
             raise TiddlerNotFoundError(f"Could not find tiddler {title}")
+
+    def search(
+        self, **query: Mapping[str, Union[str, Literal[True]]]
+    ) -> Sequence[Tiddler]:
+        ret = []
+        for tiddler in self._tiddlers:
+            if self._tiddler_matches(tiddler, **query):
+                ret.append(tiddler)
+        return ret
+
+    def _tiddler_matches(
+        self, tiddler: Tiddler, **query: Mapping[str, Union[str, Literal[True]]]
+    ) -> bool:
+        for key, value in query.items():
+            if isinstance(value, bool) and value is True and getattr(tiddler, key):
+                return True
+            elif isinstance(value, str) and getattr(tiddler, key) == value:
+                return True
+        return False
 
     @abstractmethod
     def new_tiddler(self, title: str) -> Tiddler:

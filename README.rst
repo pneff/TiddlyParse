@@ -28,7 +28,8 @@ The number of tiddlers are returned with the `len` function::
     >>> len(wiki)
     7
 
-Note that only the root tiddlers are returned. The individual tiddlers contained therein are not currently handled, though that may change.
+Note that only the root tiddlers are returned.
+The individual tiddlers contained therein are not currently handled, though that may change.
 
 You can access individual tiddlers using dictionary notation or `get`::
 
@@ -36,7 +37,24 @@ You can access individual tiddlers using dictionary notation or `get`::
     <tiddlyparse.parser.JsonTiddler object at 0x105a85130>
     >>> wiki.get('no such tiddler')
 
-The properties are available on those tiddlers::
+It is also possible to execute simple searches.
+Any keyword argument to the `search` function is converted into a query component.
+If the argument value is `True`, then all tiddlers that have this attribute defined are returned::
+
+    >>> tiddlers = wiki.search(author=True)
+    >>> tiddlers
+    [<tiddlyparse.parser.JsonTiddler object at 0x101827e80>, <tiddlyparse.parser.JsonTiddler object at 0x101832130>, <tiddlyparse.parser.JsonTiddler object at 0x101832190>]
+    >>> [t.title for t in tiddlers]
+    ['$:/core', '$:/themes/tiddlywiki/snowwhite', '$:/themes/tiddlywiki/vanilla']
+
+If it's any string value, then all tiddlers that have this attribute set to exactly this value are returned::
+
+    >>> tiddlers = wiki.search(name='Snow White')
+    >>> [t.title for t in tiddlers]
+    ['$:/themes/tiddlywiki/snowwhite']
+
+The tiddlers are all represented using the `Tiddler` class (`JsonTiddler` or `DivTiddler` more specifically).
+The tiddler attributes are available as properties are available on those objects::
 
     >>> tiddler = wiki['$:/isEncrypted']
     >>> tiddler.text
@@ -46,7 +64,8 @@ The properties are available on those tiddlers::
     'JeremyRuston'
 
 
-To create or modify a tiddler, use the `get_or_create` method to first get the tiddler. Then add it to the wiki with `add`::
+To create or modify a tiddler, use the `get_or_create` method to first get the tiddler.
+Then add it to the wiki with `add`::
 
     >>> tiddler = wiki.get_or_create('Testing TiddlyParse')
     >>> tiddler.text = "This is the first ''test'' with TiddlyParse."
