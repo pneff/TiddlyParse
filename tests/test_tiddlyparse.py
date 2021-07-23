@@ -150,6 +150,17 @@ def test_json_tiddler_search_by_specific_value(json_wiki):
     assert tiddlers[0].title == "$:/themes/tiddlywiki/snowwhite"
 
 
+def test_json_tiddler_search_by_multiple_values_matching(json_wiki):
+    tiddlers = json_wiki.search(name="Snow White", author=True)
+    assert len(tiddlers) == 1
+    assert tiddlers[0].title == "$:/themes/tiddlywiki/snowwhite"
+
+
+def test_json_tiddler_search_by_multiple_values_not_matching(json_wiki):
+    tiddlers = json_wiki.search(name="Snow White", author="Anonymous")
+    assert len(tiddlers) == 0
+
+
 def test_json_write(json_file_name, tmp_path):
     fixture_name = tmp_path / "wiki.html"
     shutil.copy(json_file_name, fixture_name)

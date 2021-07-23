@@ -264,12 +264,14 @@ class TiddlyParser(ABC):
     def _tiddler_matches(
         self, tiddler: Tiddler, **query: Mapping[str, Union[str, Literal[True]]]
     ) -> bool:
+        matches = 0
         for key, value in query.items():
             if isinstance(value, bool) and value is True and getattr(tiddler, key):
-                return True
+                matches += 1
             elif isinstance(value, str) and getattr(tiddler, key) == value:
-                return True
-        return False
+                matches += 1
+        matched = matches == len(query)
+        return matched
 
     @abstractmethod
     def new_tiddler(self, title: str) -> Tiddler:
