@@ -4,6 +4,7 @@ import time
 from pathlib import Path
 
 from pytest import fixture
+
 from tiddlyparse import __version__, parse
 from tiddlyparse.parser import FileFormat
 
