@@ -48,7 +48,7 @@ class Tiddler:
             return ""
 
     def __setattr__(self, key: str, value: str) -> None:
-        if key.startswith("_"):
+        if key.startswith("_") and key != "_canonical_uri":
             object.__setattr__(self, key, value)
         else:
             self._properties[key] = value

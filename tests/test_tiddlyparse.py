@@ -185,6 +185,14 @@ def test_json_tiddler_search_by_multiple_values_not_matching(json_wiki):
     assert len(tiddlers) == 0
 
 
+def test_json_modify_canonical_uri(json_wiki):
+    tiddler = json_wiki.get_or_create("test.png")
+    tiddler._canonical_uri = "files/test.png"
+
+    assert tiddler._canonical_uri == "files/test.png"
+    assert tiddler.to_dict()["_canonical_uri"] == "files/test.png"
+
+
 def test_json_write(json_file_name, tmp_path):
     fixture_name = tmp_path / "wiki.html"
     shutil.copy(json_file_name, fixture_name)
