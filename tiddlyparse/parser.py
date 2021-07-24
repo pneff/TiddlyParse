@@ -1,6 +1,7 @@
 import html
 import json
 import tempfile
+import time
 from abc import ABC, abstractmethod
 from enum import Enum
 from json.decoder import JSONDecodeError
@@ -80,6 +81,21 @@ class Tiddler:
             if key not in ret:
                 ret[key] = value
         return ret
+
+    def fixup(self) -> None:
+        """Ensure the tiddler has the required properties to add to the wiki."""
+        # mypy fails on the following two lines and can't figure out that
+        # `__getattr__` has declared these to be strings. So need to ignore
+        # those lines.
+        modified = self.modified  # type: ignore
+        created: str = self.created  # type: ignore
+        if not modified:
+            self.modified = self._get_current_timestamp()
+        if not created:
+            self.created = self._get_current_timestamp()
+
+    def _get_current_timestamp(self) -> str:
+        return time.strftime("%Y%m%d%H%M%S000", time.gmtime())
 
 
 class DivTiddler(Tiddler):
@@ -166,7 +182,10 @@ class TiddlyParser(ABC):
     def is_format(cls, file: Path, soup: BeautifulSoup) -> bool:
         pass
 
-    def add(self, tiddler: Tiddler) -> None:
+    def add(self, tiddler: Tiddler, *, track_modified: bool = True) -> None:
+        if track_modified:
+            tiddler.fixup()
+
         tiddlers = [t for t in self._tiddlers if t.title != tiddler.original_title]
         tiddlers.append(tiddler)
         if tiddler.title not in self._changes:
@@ -409,7 +428,7 @@ class DivTiddlyParser(TiddlyParser):
     def __len__(self) -> int:
         return len(self._tiddlers)
 
-    def add(self, tiddler: Tiddler) -> None:
+    def add(self, tiddler: Tiddler, *, track_modified: bool = True) -> None:
         title = tiddler.original_title or tiddler.title
         if title in self._new_tiddlers:
             self._new_tiddlers[title] = tiddler
@@ -420,7 +439,7 @@ class DivTiddlyParser(TiddlyParser):
         else:
             self._new_tiddlers[title] = tiddler
 
-        super().add(tiddler=tiddler)
+        super().add(tiddler=tiddler, track_modified=track_modified)
 
     def new_tiddler(self, title: str) -> Tiddler:
         return DivTiddler(title=title)

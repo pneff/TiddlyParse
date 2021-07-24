@@ -1,5 +1,6 @@
 import re
 import shutil
+import time
 from pathlib import Path
 
 from pytest import fixture
@@ -28,6 +29,13 @@ def json_file_name():
 @fixture
 def json_wiki(json_file_name):
     yield parse(file=json_file_name)
+
+
+@fixture
+def mock_time(monkeypatch):
+    # 2021-07-24 10:02:16
+    fixed_time = time.struct_time((2021, 7, 24, 10, 2, 16, 5, 205, 0))
+    monkeypatch.setattr(time, "gmtime", lambda: fixed_time)
 
 
 def test_version():
@@ -97,7 +105,7 @@ def test_div_noop_modification_write_no_modification(div_file_name, tmp_path):
 
     wiki = parse(fixture_name)
     tiddler = wiki["$:/isEncrypted"]
-    wiki.add(tiddler)
+    wiki.add(tiddler, track_modified=False)
     wiki.save()
 
     orig_content = div_file_name.open().read()
@@ -261,3 +269,37 @@ def test_json_return_changes(json_file_name):
     changes = wiki.changes
     assert len(changes) == 2
     assert changes == ["my_new_tiddler", "$:/themes/tiddlywiki/snowwhite"]
+
+
+def test_json_write_track_modification(json_file_name, tmp_path, mock_time):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(json_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    tiddler = wiki.get_or_create("my_new_tiddler")
+    tiddler.text = "This is a test for a new tiddler."
+    wiki.add(tiddler)
+    wiki.save()
+
+    wiki2 = parse(fixture_name)
+    tiddler2 = wiki2["my_new_tiddler"]
+    assert tiddler2.modified == "20210724100216000"
+    assert tiddler2.created == "20210724100216000"
+
+
+def test_json_write_dont_overwrite_modification(json_file_name, tmp_path, mock_time):
+    fixture_name = tmp_path / "wiki.html"
+    shutil.copy(json_file_name, fixture_name)
+
+    wiki = parse(fixture_name)
+    tiddler = wiki.get_or_create("my_new_tiddler")
+    tiddler.text = "This is a test for a new tiddler."
+    tiddler.modified = "20210724100928000"
+    tiddler.created = "20210722011012000"
+    wiki.add(tiddler)
+    wiki.save()
+
+    wiki2 = parse(fixture_name)
+    tiddler2 = wiki2["my_new_tiddler"]
+    assert tiddler2.modified == "20210724100928000"
+    assert tiddler2.created == "20210722011012000"
