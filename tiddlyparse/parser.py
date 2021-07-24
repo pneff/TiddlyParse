@@ -170,12 +170,14 @@ class TiddlyParser(ABC):
 
     _tiddlers: Sequence[Tiddler]
     _changes: MutableSequence[str]
+    _deletions: MutableSequence[str]
     _soup: BeautifulSoup
     _root: Tag
 
     def __init__(self) -> None:
         self._tiddlers = []
         self._changes = []
+        self._deletions = []
 
     @classmethod
     @abstractmethod
@@ -192,13 +194,26 @@ class TiddlyParser(ABC):
             self._changes.append(tiddler.title)
         self._tiddlers = tiddlers
 
+    def remove(self, tiddler: Tiddler) -> None:
+        tiddlers = [t for t in self._tiddlers if t.title != tiddler.original_title]
+        if tiddler.original_title not in self._deletions:
+            self._deletions.append(tiddler.title)
+        self._tiddlers = tiddlers
+
     @property
     def changes(self) -> Sequence[str]:
         return self._changes
 
+    @property
+    def deletions(self) -> Sequence[str]:
+        return self._deletions
+
     @abstractmethod
     def save(self) -> None:
-        pass
+        self.dump_to_file()
+
+        self._changes = []
+        self._deletions = []
 
     def dump_to_file(self) -> None:
         """Dump the file back out.
@@ -349,7 +364,8 @@ class JsonTiddlyParser(TiddlyParser):
         out.append("\n]")
         tiddlers_json = "".join(out)
         self._root.string = tiddlers_json
-        self.dump_to_file()
+
+        super().save()
 
     def __len__(self) -> int:
         return len(self._tiddlers)
@@ -410,7 +426,9 @@ class DivTiddlyParser(TiddlyParser):
             if isinstance(container, Tag):
                 container_title = container["title"]
                 if isinstance(container_title, str):
-                    if container_title in self._modified_tiddlers:
+                    if container_title in self._deletions:
+                        container.extract()
+                    elif container_title in self._modified_tiddlers:
                         tiddler = self._modified_tiddlers[container_title]
                         container.replace_with(self._dump_tiddler(tiddler))
                         dumped.add(container_title)
@@ -423,7 +441,10 @@ class DivTiddlyParser(TiddlyParser):
             assert title not in dumped
             self._root.append(self._dump_tiddler(tiddler))
 
-        self.dump_to_file()
+        super().save()
+
+        self._new_tiddlers = {}
+        self._modified_tiddlers = {}
 
     def __len__(self) -> int:
         return len(self._tiddlers)
