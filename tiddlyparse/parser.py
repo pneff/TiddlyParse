@@ -8,8 +8,15 @@ from collections.abc import Iterator
 from enum import Enum
 from json.decoder import JSONDecodeError
 from pathlib import Path
-from typing import (Literal, Mapping, MutableMapping, MutableSequence,
-                    Optional, Sequence, Union)
+from typing import (
+    Literal,
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    Optional,
+    Sequence,
+    Union,
+)
 
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, Tag
