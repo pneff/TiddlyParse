@@ -101,7 +101,7 @@ def test_div_write_no_modification(div_file_name, tmp_path):
 
 def test_div_noop_modification_write_no_modification(div_file_name, tmp_path):
     """Ensure that adding a Tiddler without modifications doesn't change the file."""
-    fixture_name = Path("/tmp/wiki") / "wiki.html"
+    fixture_name = tmp_path / "wiki.html"
     shutil.copy(div_file_name, fixture_name)
 
     wiki = parse(fixture_name)

@@ -46,6 +46,13 @@ def task_poetry_install():
     }
 
 
+def task_test():
+    return {
+        "setup": ["poetry_install"],
+        "actions": with_poetry("pytest"),
+    }
+
+
 def task_lint():
     """Lint the code with isort, flake8 and mypy"""
     yield {
