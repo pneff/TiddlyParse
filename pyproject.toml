@@ -1,8 +1,20 @@
 [tool.poetry]
 name = "TiddlyParse"
-version = "0.1.0"
-description = ""
+version = "0.2.0"
+description = "TiddlyParse allows Python to interact with TiddlyWiki files."
 authors = ["Patrice Neff <mail@patrice.ch>"]
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/pneff/TiddlyParse"
+repository = "https://github.com/pneff/TiddlyParse"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "License :: OSI Approved :: MIT License",
+]
+include = [
+    "LICENSE",
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"
