@@ -1,8 +1,10 @@
+import bisect
 import html
 import json
 import tempfile
 import time
 from abc import ABC, abstractmethod
+from collections.abc import Iterator
 from enum import Enum
 from json.decoder import JSONDecodeError
 from pathlib import Path
@@ -168,7 +170,7 @@ class TiddlyParser(ABC):
     filename: Path
     fileformat: FileFormat
 
-    _tiddlers: Sequence[Tiddler]
+    _tiddlers: MutableSequence[Tiddler]
     _changes: MutableSequence[str]
     _deletions: MutableSequence[str]
     _soup: BeautifulSoup
@@ -184,15 +186,30 @@ class TiddlyParser(ABC):
     def is_format(cls, file: Path, soup: BeautifulSoup) -> bool:
         pass
 
+    def items(self) -> Iterator[Tiddler]:
+        for tiddler in self._tiddlers:
+            yield tiddler
+
     def add(self, tiddler: Tiddler, *, track_modified: bool = True) -> None:
         if track_modified:
             tiddler.fixup()
 
-        tiddlers = [t for t in self._tiddlers if t.title != tiddler.original_title]
-        tiddlers.append(tiddler)
+        # Insert the tiddler in the correct place of the list. The list is
+        # sorted, but not yet in an entirely predictable way. Thus we first
+        # do the search for existing tiddlers in a brute-force manner.
+        existing_index = None
+        for idx, original_tiddler in enumerate(self._tiddlers):
+            if original_tiddler.title == tiddler.original_title:
+                existing_index = idx
+                break
+        if existing_index is None:
+            # Bisect insert to put the new tiddler in the right place
+            bisect.insort(self._tiddlers, tiddler, key=lambda t: t.title)
+        else:
+            self._tiddlers[existing_index] = tiddler
+
         if tiddler.title not in self._changes:
             self._changes.append(tiddler.title)
-        self._tiddlers = tiddlers
 
     def remove(self, tiddler: Tiddler) -> None:
         tiddlers = [t for t in self._tiddlers if t.title != tiddler.original_title]
@@ -348,11 +365,10 @@ class JsonTiddlyParser(TiddlyParser):
         return bool(cls._get_container(soup))
 
     def save(self) -> None:
-        tiddlers = sorted(self._tiddlers, key=lambda t: t.title.lower())
         # We manually encode each row, so that we can separate every list item
         # with a newline.
         out = ["["]
-        for idx, tiddler in enumerate(tiddlers):
+        for idx, tiddler in enumerate(self._tiddlers):
             if idx > 0:
                 out.append(",")
             out.append("\n")
@@ -377,8 +393,8 @@ class JsonTiddlyParser(TiddlyParser):
     def _get_container(soup: BeautifulSoup) -> Union[Tag, NavigableString, None]:
         return soup.find("script", class_="tiddlywiki-tiddler-store")
 
-    def _load_tiddlers(self) -> Sequence[Tiddler]:
-        tiddlers = []
+    def _load_tiddlers(self) -> MutableSequence[Tiddler]:
+        tiddlers: list[Tiddler] = []
         text = self._root.string
         if not text:
             raise UnknownTiddlywikiFormatError("No tiddler content found.")
@@ -469,8 +485,8 @@ class DivTiddlyParser(TiddlyParser):
     def _get_container(soup: BeautifulSoup) -> Union[Tag, NavigableString, None]:
         return soup.find("div", id="storeArea")
 
-    def _load_tiddlers(self) -> Sequence[Tiddler]:
-        tiddlers = []
+    def _load_tiddlers(self) -> MutableSequence[Tiddler]:
+        tiddlers: list[Tiddler] = []
         for container in self._root("div"):
             if isinstance(container, Tag):
                 tiddlers.append(DivTiddler(container))
